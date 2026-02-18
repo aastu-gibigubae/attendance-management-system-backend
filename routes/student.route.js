@@ -10,6 +10,7 @@ const {
   deleteOwnAccount,
   updateOwnProfile,
   getStudentById,
+  getMyProfile
 } = require("../controllers/student.controller");
 const studentRouter = express.Router();
 
@@ -48,6 +49,12 @@ studentRouter.get(
   '/courses', 
   authenticate, 
   courseController.getAvailableCoursesForStudent
+);
+
+studentRouter.get(
+  '/me', 
+  authenticate, 
+  getMyProfile
 );
 
 module.exports = studentRouter;
