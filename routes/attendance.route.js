@@ -9,6 +9,7 @@ const {
   getStudentAttendance,
   getCourseAttendance,
   getAttendanceForStudentCourse,
+  deleteAttendance
 } = require("../controllers/attendance.controller");
 
 // Admin-only: create attendance
@@ -26,6 +27,9 @@ attendanceRouter.post("/mark/admin", authenticate, authorizeAdmin, markAttendanc
 // Get attendance for a student
 attendanceRouter.get("/student/course/:courseId",authenticate,getAttendanceForStudentCourse);
 attendanceRouter.get("/student/:studentId", authenticate, getStudentAttendance);
+
+attendanceRouter.delete("/:attendanceId", authenticate, authorizeAdmin, deleteAttendance);
+
 
 
 

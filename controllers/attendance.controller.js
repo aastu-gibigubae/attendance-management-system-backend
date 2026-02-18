@@ -300,3 +300,38 @@ exports.getAttendanceForStudentCourse = async (req, res) => {
     handleError(res, err);
   }
 };
+
+
+exports.deleteAttendance = async (req, res) => {
+  const transaction = await Attendance.sequelize.transaction();
+  try {
+    const { attendanceId } = req.params;
+
+    if (!attendanceId) {
+      throw { statusCode: 400, message: "attendanceId is required" };
+    }
+
+    const attendance = await Attendance.findByPk(attendanceId, { transaction });
+
+    if (!attendance) {
+      throw { statusCode: 404, message: "Attendance not found" };
+    }
+
+    await StudentAttendance.destroy({
+      where: { attendanceId },
+      transaction,
+    });
+
+    await attendance.destroy({ transaction });
+
+    await transaction.commit();
+
+    res.json({
+      success: true,
+      message: "Attendance deleted successfully",
+    });
+  } catch (err) {
+    await transaction.rollback();
+    handleError(res, err);
+  }
+};
