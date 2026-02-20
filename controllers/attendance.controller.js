@@ -24,6 +24,20 @@ const generateCode = (length = 4) => {
   return Math.floor(min + Math.random() * (max - min + 1)).toString();
 };
 
+
+const TWO_HOURS = 2 * 60 * 60 * 1000;
+
+const calculateExpiry = (attendanceDate) => {
+  const attendanceTime = new Date(attendanceDate);
+  const expiresAt = new Date(attendanceTime.getTime() + TWO_HOURS);
+  const now = new Date();
+
+  return {
+    attendanceTime,
+    expiresAt,
+    isExpired: now > expiresAt,
+  };
+};
 // ------------------------------
 // Create Attendance (Admin)
 // ------------------------------
@@ -68,11 +82,14 @@ exports.createAttendance = async (req, res) => {
       await StudentAttendance.bulkCreate(attendanceRows);
     }
 
+    const expiryData = calculateExpiry(attendance.date);
+
     res.status(201).json({
       success: true,
       message: "Attendance created and students initialized",
       data: {
         attendance,
+        expiryData,
         totalStudents: enrollments.length,
       },
     });
@@ -96,6 +113,8 @@ exports.markAttendanceStudent = async (req, res) => {
       throw { statusCode: 400, message: "attendanceId and code are required" };
 
     const attendance = await Attendance.findByPk(attendanceId);
+    if (!attendance) throw { statusCode: 404, message: "Attendance not found" };
+    
     const isEnrolled = await Enrollment.findOne({
       where: { studentId: user.user_id, courseId: attendance.courseId },
     });
@@ -104,24 +123,20 @@ exports.markAttendanceStudent = async (req, res) => {
         statusCode: 403,
         message: "You are not enrolled in this course",
       };
-    if (!attendance) throw { statusCode: 404, message: "Attendance not found" };
-
+    
     // ---- Check Code ----
     if (attendance.code !== code)
       throw { statusCode: 400, message: "Invalid attendance code" };
 
     // ---- Check 2-hour lock ----
-    const now = new Date();
-    const attendanceTime = new Date(attendance.date);
+    const expiryData = calculateExpiry(attendance.date);
 
-    const twoHours = 2 * 60 * 60 * 1000; // 2 hours in ms
-
-    if (now.getTime() > attendanceTime.getTime() + twoHours) {
-      throw {
-        statusCode: 400,
-        message:
-          "Attendance window has closed. You cannot mark attendance now.",
-      };
+    if (expiryData.isExpired) {
+      return res.status(400).json({
+        success: false,
+        message: "Attendance window has closed.",
+        meta: expiryData,
+      });
     }
 
     // ---- Find student attendance row ----
@@ -138,6 +153,7 @@ exports.markAttendanceStudent = async (req, res) => {
         success: true,
         message: "Attendance marked successfully",
         data: record,
+        meta: expiryData,
       });
     }
 
@@ -152,6 +168,7 @@ exports.markAttendanceStudent = async (req, res) => {
       success: true,
       message: "Attendance marked successfully",
       data: record,
+      meta: expiryData,
     });
   } catch (err) {
     handleError(res, err);
@@ -173,6 +190,10 @@ exports.markAttendanceAdmin = async (req, res) => {
 
     const attendance = await Attendance.findByPk(attendanceId);
     if (!attendance) throw { statusCode: 404, message: "Attendance not found" };
+
+    const student = await Student.findByPk(studentId);
+    if (!student) throw { statusCode: 404, message: "Student not found" };
+    
     const isEnrolled = await Enrollment.findOne({
       where: { studentId, courseId: attendance.courseId },
     });
@@ -183,8 +204,10 @@ exports.markAttendanceAdmin = async (req, res) => {
         message: "Student is not enrolled in this course",
       };
 
-    const student = await Student.findByPk(studentId);
-    if (!student) throw { statusCode: 404, message: "Student not found" };
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    const attendanceTime = new Date(attendance.date);
+    const expiresAt = new Date(attendanceTime.getTime() + TWO_HOURS);
+    const isExpired = new Date() > expiresAt;
 
     let record = await StudentAttendance.findOne({
       where: { attendanceId, studentId },
@@ -198,6 +221,11 @@ exports.markAttendanceAdmin = async (req, res) => {
         success: true,
         message: "Attendance updated",
         data: record,
+        meta: {
+          attendanceTime,
+          expiresAt,
+          isExpired
+        }
       });
     } else {
       // Create new record
@@ -208,7 +236,16 @@ exports.markAttendanceAdmin = async (req, res) => {
       });
       return res
         .status(201)
-        .json({ success: true, message: "Attendance marked", data: record });
+        .json({ 
+          success: true,
+          message: "Attendance marked", 
+          data: record,
+          meta: {
+            attendanceTime,
+            expiresAt,
+            isExpired,
+          },
+        });
     }
   } catch (err) {
     handleError(res, err);
@@ -290,11 +327,20 @@ exports.getAttendanceForStudentCourse = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
+    const enhanced = records.map((record) => {
+      const expiryData = calculateExpiry(record.attendance.date);
+
+      return {
+        ...record.toJSON(),
+        meta: expiryData,
+      };
+    });
+
     res.json({
       success: true,
       courseId,
-      totalSessions: records.length,
-      data: records,
+      totalSessions: enhanced.length,
+      data: enhanced,
     });
   } catch (err) {
     handleError(res, err);
