@@ -53,15 +53,16 @@ exports.createAttendance = async (req, res) => {
     if (!course) throw { statusCode: 404, message: "Course not found" };
 
     // ---- Time calculation ----
-    const now = new Date();
-    const futureDate = new Date(now.getTime() + minutes * 60000);
+    const startTime = new Date();
+    const expiresAt = new Date(startTime.getTime() + minutes * 60000);
 
     const code = generateCode();
 
     // ---- Create Attendance ----
     const attendance = await Attendance.create({
       courseId,
-      date: futureDate,
+      startTime,
+      expiresAt,
       code,
     });
 
@@ -82,14 +83,15 @@ exports.createAttendance = async (req, res) => {
       await StudentAttendance.bulkCreate(attendanceRows);
     }
 
-    const expiryData = calculateExpiry(attendance.date);
+    // const expiryData = calculateExpiry(attendance.date);
 
     res.status(201).json({
       success: true,
       message: "Attendance created and students initialized",
       data: {
         attendance,
-        expiryData,
+        expiresAt,
+        isExpired: false,
         totalStudents: enrollments.length,
       },
     });
@@ -129,13 +131,38 @@ exports.markAttendanceStudent = async (req, res) => {
       throw { statusCode: 400, message: "Invalid attendance code" };
 
     // ---- Check 2-hour lock ----
-    const expiryData = calculateExpiry(attendance.date);
+    const now = new Date();
 
-    if (expiryData.isExpired) {
+    const status =
+      now < attendance.startTime
+        ? "UPCOMING"
+        : now > attendance.expiresAt
+        ? "CLOSED"
+        : "OPEN";
+
+    if (status === "UPCOMING") {
+      return res.status(400).json({
+        success: false,
+        message: "Attendance has not started yet.",
+        meta: {
+          startTime: attendance.startTime,
+          expiresAt: attendance.expiresAt,
+          isExpired: false,
+          status,
+        },
+      });
+    }
+
+    if (status === "CLOSED") {
       return res.status(400).json({
         success: false,
         message: "Attendance window has closed.",
-        meta: expiryData,
+        meta: {
+          startTime: attendance.startTime,
+          expiresAt: attendance.expiresAt,
+          isExpired: true,
+          status,
+        },
       });
     }
 
@@ -153,7 +180,12 @@ exports.markAttendanceStudent = async (req, res) => {
         success: true,
         message: "Attendance marked successfully",
         data: record,
-        meta: expiryData,
+        meta: {
+          startTime: attendance.startTime,
+          expiresAt: attendance.expiresAt,
+          isExpired: false,
+          status: "OPEN",
+        },
       });
     }
 
@@ -168,7 +200,12 @@ exports.markAttendanceStudent = async (req, res) => {
       success: true,
       message: "Attendance marked successfully",
       data: record,
-      meta: expiryData,
+      meta: {
+          startTime: attendance.startTime,
+          expiresAt: attendance.expiresAt,
+          isExpired: false,
+          status: "OPEN",
+        },
     });
   } catch (err) {
     handleError(res, err);
@@ -204,10 +241,8 @@ exports.markAttendanceAdmin = async (req, res) => {
         message: "Student is not enrolled in this course",
       };
 
-    const TWO_HOURS = 2 * 60 * 60 * 1000;
-    const attendanceTime = new Date(attendance.date);
-    const expiresAt = new Date(attendanceTime.getTime() + TWO_HOURS);
-    const isExpired = new Date() > expiresAt;
+    const now = new Date();
+    const isExpired = now > attendance.expiresAt;
 
     let record = await StudentAttendance.findOne({
       where: { attendanceId, studentId },
@@ -222,8 +257,8 @@ exports.markAttendanceAdmin = async (req, res) => {
         message: "Attendance updated",
         data: record,
         meta: {
-          attendanceTime,
-          expiresAt,
+          startTime: attendance.startTime,
+          expiresAt: attendance.expiresAt,
           isExpired
         }
       });
@@ -241,9 +276,9 @@ exports.markAttendanceAdmin = async (req, res) => {
           message: "Attendance marked", 
           data: record,
           meta: {
-            attendanceTime,
-            expiresAt,
-            isExpired,
+            startTime: attendance.startTime,
+            expiresAt: attendance.expiresAt,
+            isExpired
           },
         });
     }
@@ -327,12 +362,26 @@ exports.getAttendanceForStudentCourse = async (req, res) => {
       order: [["createdAt", "DESC"]],
     });
 
+    const now = new Date();
+
     const enhanced = records.map((record) => {
-      const expiryData = calculateExpiry(record.attendance.date);
+      const attendance = record.attendance;
+
+      const status =
+        now < attendance.startTime
+          ? "UPCOMING"
+          : now > attendance.expiresAt
+          ? "CLOSED"
+          : "OPEN";
 
       return {
         ...record.toJSON(),
-        meta: expiryData,
+        meta: {
+          startTime: attendance.startTime,
+          expiresAt: attendance.expiresAt,
+          isExpired: now > attendance.expiresAt,
+          status,
+        },
       };
     });
 
