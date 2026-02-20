@@ -2,6 +2,7 @@ module.exports = (sequelize, DataTypes) => {
   const Attendance = sequelize.define("Attendance", {
     date: { type: DataTypes.DATE, allowNull: false },
     code: { type: DataTypes.STRING, allowNull: false, unique: true },
+    minutes: { type: DataTypes.INTEGER, allowNull: false,defaultValue: 120 },
     courseId: {
       type: DataTypes.INTEGER,
       references: { model: "Courses", key: "id" },
