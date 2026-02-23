@@ -3,36 +3,59 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.addColumn('Courses', 'course_type', {
-      type: Sequelize.ENUM('regular', 'event'),
-      allowNull: false,
-      defaultValue: 'regular'
-    });
+    const table = await queryInterface.describeTable('Courses');
 
-    await queryInterface.changeColumn('Courses', 'year_level', {
-      type: Sequelize.INTEGER,
-      allowNull: true
-    });
+    // Add course_type only if it doesn't exist
+    if (!table.course_type) {
+      await queryInterface.addColumn('Courses', 'course_type', {
+        type: Sequelize.ENUM('regular', 'event'),
+        allowNull: false,
+        defaultValue: 'regular'
+      });
+    }
 
-    await queryInterface.changeColumn('Courses', 'semester', {
-      type: Sequelize.INTEGER,
-      allowNull: true
-    });
+    // Change year_level only if currently NOT nullable
+    if (table.year_level && table.year_level.allowNull === false) {
+      await queryInterface.changeColumn('Courses', 'year_level', {
+        type: Sequelize.INTEGER,
+        allowNull: true
+      });
+    }
+
+    // Change semester only if currently NOT nullable
+    if (table.semester && table.semester.allowNull === false) {
+      await queryInterface.changeColumn('Courses', 'semester', {
+        type: Sequelize.INTEGER,
+        allowNull: true
+      });
+    }
   },
 
-  async down(queryInterface) {
-    await queryInterface.removeColumn('Courses', 'course_type');
- 
-    await queryInterface.changeColumn('Courses', 'year_level', {
-      type: Sequelize.INTEGER,
-      allowNull: false
-    });
+  async down(queryInterface, Sequelize) {
+    const table = await queryInterface.describeTable('Courses');
 
-    await queryInterface.changeColumn('Courses', 'semester', {
-      type: Sequelize.INTEGER,
-      allowNull: false
-    });
+    // Remove course_type only if it exists
+    if (table.course_type) {
+      await queryInterface.removeColumn('Courses', 'course_type');
+      await queryInterface.sequelize.query(
+        'DROP TYPE IF EXISTS "enum_Courses_course_type";'
+      );
+    }
 
-    await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_Courses_course_type";');
+    // Revert year_level to NOT NULL if currently nullable
+    if (table.year_level && table.year_level.allowNull === true) {
+      await queryInterface.changeColumn('Courses', 'year_level', {
+        type: Sequelize.INTEGER,
+        allowNull: false
+      });
+    }
+
+    // Revert semester to NOT NULL if currently nullable
+    if (table.semester && table.semester.allowNull === true) {
+      await queryInterface.changeColumn('Courses', 'semester', {
+        type: Sequelize.INTEGER,
+        allowNull: false
+      });
+    }
   }
 };
