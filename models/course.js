@@ -8,22 +8,28 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: false,
     },
+    course_type: {
+      type: DataTypes.ENUM('regular', 'event'),
+      allowNull: false,
+      defaultValue: 'regular'
+    },
     year_level: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       validate: {
+        isInt: true,
         min: 1,
-        max: 5,
-      },
+        max: 5
+      }
     },
-
     semester: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       validate: {
+        isInt: true,
         min: 1,
-        max: 2,
-      },
+        max: 2
+      }
     },
     start_date: {
       type: DataTypes.DATE,
@@ -54,6 +60,19 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true,
     createdAt: "created_at",
     updatedAt: "updated_at",
+
+     validate: {
+      regularCourseValidation() {
+        if (this.course_type === 'regular') {
+          if (!this.year_level) {
+            throw new Error('Year level is required for regular courses');
+          }
+          if (!this.semester) {
+            throw new Error('Semester is required for regular courses');
+          }
+        }
+      }
+    }
   });
 
   Course.associate = (models) => {
