@@ -284,7 +284,7 @@ exports.getStudentAttendance = async (req, res) => {
 
       return {
         ...record.toJSON(),
-        meta: { startTime, expiresAt, isExpired: now > expiresAt, status },
+        meta: { startTime, expiresAt, isExpired: now > expiresAt, status,course_type: attendance.course?.course_type },
       };
     });
 
