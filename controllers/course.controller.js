@@ -83,30 +83,111 @@ exports.createCourse = async (req, res) => {
 // -------------------
 // Get All Courses (with optional type filter)
 // -------------------
+// exports.getCourses = async (req, res) => {
+//   try {
+//     const { type } = req.query; // Optional filter by course_type
+    
+//     const whereClause = {};
+//     if (type && ['regular', 'event'].includes(type)) {
+//       whereClause.course_type = type;
+//     }
+
+//     const courses = await Course.findAll({
+//       where: whereClause,
+//       order: [
+//         ['course_type', 'ASC'],
+//         ['semester', 'ASC'],
+//         ['course_name', 'ASC']
+//       ]
+//     });
+    
+//     res.json({ success: true, data: courses });
+//   } catch (err) {
+//     handleError(res, err);
+//   }
+// };
+// -------------------
+// Get All Courses (with optional type filter and enrollment status for student)
+// -------------------
+// -------------------
+// Get All Courses (with optional type filter and enrollment status for student)
+// -------------------
 exports.getCourses = async (req, res) => {
   try {
     const { type } = req.query; // Optional filter by course_type
+    
+    // Check if user exists in request
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required. Please log in."
+      });
+    }
+
+    const studentId = Number(req.user.user_id);
+    
+    // Validate studentId is a valid number
+    if (isNaN(studentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user ID format"
+      });
+    }
     
     const whereClause = {};
     if (type && ['regular', 'event'].includes(type)) {
       whereClause.course_type = type;
     }
 
+    // Get courses with enrollment information
     const courses = await Course.findAll({
       where: whereClause,
+      include: [
+        {
+          model: Enrollment,
+          as: "enrollments",
+          where: { studentId },
+          required: false,
+        },
+      ],
       order: [
         ['course_type', 'ASC'],
         ['semester', 'ASC'],
         ['course_name', 'ASC']
-      ]
+      ],
     });
-    
-    res.json({ success: true, data: courses });
+
+    // Format the response
+    const formattedCourses = courses.map(course => ({
+      id: course.id,
+      course_name: course.course_name,
+      description: course.description,
+      course_type: course.course_type,
+      semester: course.semester,
+      year_level: course.year_level,
+      start_date: course.start_date,
+      end_date: course.end_date,
+      enrollment_start_date: course.enrollment_start_date,
+      enrollment_deadline: course.enrollment_deadline,
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+      alreadyEnrolled: course.enrollments.length > 0,
+    }));
+
+    res.json({
+      success: true,
+      totalCourses: formattedCourses.length,
+      data: formattedCourses,
+    });
+
   } catch (err) {
-    handleError(res, err);
+    console.error(err);
+    res.status(err.statusCode || 500).json({
+      success: false,
+      message: err.message || "Internal server error",
+    });
   }
 };
-
 // -------------------
 // Get Course by ID
 // -------------------

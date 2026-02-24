@@ -38,8 +38,8 @@ courseRouter.get(
 );
 
 // Public/student routes
-courseRouter.get("/", courseController.getCourses);
+courseRouter.get("/", authenticate,courseController.getCourses);
 courseRouter.get("/my", authenticate, courseController.getStudentCourses);
-courseRouter.get("/:id", courseController.getCourseById);
+courseRouter.get("/:id", authenticate,courseController.getCourseById);
 
 module.exports = courseRouter;
