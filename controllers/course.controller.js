@@ -224,15 +224,15 @@ exports.updateCourse = async (req, res) => {
     } = req.body;
 
     // Prevent changing course type if there are enrollments or attendance
-    if (course_type && course_type !== course.course_type) {
-      const enrollments = await Enrollment.count({ where: { courseId: id } });
-      if (enrollments > 0) {
-        throw { 
-          statusCode: 400, 
-          message: "Cannot change course type because there are existing enrollments" 
-        };
-      }
-    }
+    // if (course_type && course_type !== course.course_type) {
+    //   const enrollments = await Enrollment.count({ where: { courseId: id } });
+    //   if (enrollments > 0) {
+    //     throw { 
+    //       statusCode: 400, 
+    //       message: "Cannot change course type because there are existing enrollments" 
+    //     };
+    //   }
+    // }
 
     // Validate based on course type
     const targetType = course_type || course.course_type;
