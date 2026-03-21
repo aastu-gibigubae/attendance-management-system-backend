@@ -131,9 +131,9 @@ exports.markAttendanceStudent = async (req, res) => {
       throw { statusCode: 400, message: "Invalid attendance code" };
 
     // ---- Check hour lock ----
-    const startTime = new Date(attendance.date);
-    const expiresAt = new Date(startTime.getTime() + attendance.minutes * 60000);
     const now = new Date();
+    const startTime = new Date(attendance.date).getTime();
+    const expiresAt = startTime + attendance.minutes * 60000;
 
     const status =
       now < startTime
@@ -149,43 +149,170 @@ exports.markAttendanceStudent = async (req, res) => {
           status === "UPCOMING"
             ? "Attendance has not started yet."
             : "Attendance window has closed.",
-        meta: { startTime, expiresAt, isExpired: status === "CLOSED", status },
+        meta: {
+          startTime: new Date(startTime),
+          expiresAt: new Date(expiresAt),
+          isExpired: status === "CLOSED",
+          status,
+        },
+      });
+    }
+    // ---- ATOMIC UPDATE (CRITICAL FIX) ----
+    const [updatedRows] = await StudentAttendance.update(
+      { present: true },
+      {
+        where: {
+          attendanceId,
+          studentId: user.user_id,
+        },
+      }
+    );
+
+    // ---- If no row updated ----
+    if (updatedRows === 0) {
+      // Could be already marked OR missing row
+      return res.json({
+        success: true,
+        message: "Attendance marked successfully",
+        data: {
+          attendanceId,
+          studentId: user.user_id,
+          present: true,
+        },
+        meta: {
+          startTime: new Date(startTime),
+          expiresAt: new Date(expiresAt),
+          isExpired: false,
+          status: "OPEN",
+        },
       });
     }
 
-    // ---- Find student attendance row ----
-    let record = await StudentAttendance.findOne({
+    // ---- Fetch updated record (to keep your structure) ----
+    const record = await StudentAttendance.findOne({
       where: { attendanceId, studentId: user.user_id },
     });
-
-    // ---- Update if exists ----
-    if (record) {
-      record.present = true;
-      await record.save();
-    } else {
-      record = await StudentAttendance.create({
-        attendanceId,
-        studentId: user.user_id,
-        present: true,
-      });
-    }
 
     res.json({
       success: true,
       message: "Attendance marked successfully",
       data: record,
       meta: {
-          startTime: attendance.startTime,
-          expiresAt: attendance.expiresAt,
-          isExpired: false,
-          status: "OPEN",
-        },
+        startTime: new Date(startTime),
+        expiresAt: new Date(expiresAt),
+        isExpired: false,
+        status: "OPEN",
+      },
     });
   } catch (err) {
     handleError(res, err);
   }
 };
+// exports.markAttendanceStudent = async (req, res) => {
+//   try {
+//     const user = req.user;
+//     const { attendanceId, code } = req.body;
 
+//     if (!attendanceId || !code)
+//       throw { statusCode: 400, message: "attendanceId and code are required" };
+
+//     const attendance = await Attendance.findByPk(attendanceId);
+//     if (!attendance)
+//       throw { statusCode: 404, message: "Attendance not found" };
+
+//     const isEnrolled = await Enrollment.findOne({
+//       where: { studentId: user.user_id, courseId: attendance.courseId },
+//     });
+
+//     if (!isEnrolled)
+//       throw {
+//         statusCode: 403,
+//         message: "You are not enrolled in this course",
+//       };
+
+//     // ---- Check Code ----
+//     if (attendance.code !== code)
+//       throw { statusCode: 400, message: "Invalid attendance code" };
+
+//     // ---- Time calculation (fixed) ----
+//     const now = Date.now();
+//     const startTime = new Date(attendance.date).getTime();
+//     const expiresAt = startTime + attendance.minutes * 60000;
+
+//     const status =
+//       now < startTime
+//         ? "UPCOMING"
+//         : now > expiresAt
+//         ? "CLOSED"
+//         : "OPEN";
+
+//     if (status === "UPCOMING" || status === "CLOSED") {
+//       return res.status(400).json({
+//         success: false,
+//         message:
+//           status === "UPCOMING"
+//             ? "Attendance has not started yet."
+//             : "Attendance window has closed.",
+//         meta: {
+//           startTime: new Date(startTime),
+//           expiresAt: new Date(expiresAt),
+//           isExpired: status === "CLOSED",
+//           status,
+//         },
+//       });
+//     }
+
+//     // ---- ATOMIC UPDATE (CRITICAL FIX) ----
+//     const [updatedRows] = await StudentAttendance.update(
+//       { present: true },
+//       {
+//         where: {
+//           attendanceId,
+//           studentId: user.user_id,
+//         },
+//       }
+//     );
+
+//     // ---- If no row updated ----
+//     if (updatedRows === 0) {
+//       // Could be already marked OR missing row
+//       return res.json({
+//         success: true,
+//         message: "Attendance marked successfully",
+//         data: {
+//           attendanceId,
+//           studentId: user.user_id,
+//           present: true,
+//         },
+//         meta: {
+//           startTime: new Date(startTime),
+//           expiresAt: new Date(expiresAt),
+//           isExpired: false,
+//           status: "OPEN",
+//         },
+//       });
+//     }
+
+//     // ---- Fetch updated record (to keep your structure) ----
+//     const record = await StudentAttendance.findOne({
+//       where: { attendanceId, studentId: user.user_id },
+//     });
+
+//     res.json({
+//       success: true,
+//       message: "Attendance marked successfully",
+//       data: record,
+//       meta: {
+//         startTime: new Date(startTime),
+//         expiresAt: new Date(expiresAt),
+//         isExpired: false,
+//         status: "OPEN",
+//       },
+//     });
+//   } catch (err) {
+//     handleError(res, err);
+//   }
+// };
 // ------------------------------
 // Mark or Update attendance (Admin)
 // ------------------------------
