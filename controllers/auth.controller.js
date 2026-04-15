@@ -11,24 +11,35 @@ const {
 const ninetyDays = 1000 * 60 * 60 * 24 * 90;
 
 /**
- * 🔥 CRITICAL FIX:
- * Use ONE shared parent domain for ALL subdomains
- * so cookies are not duplicated across:
- * - api.attendance...
- * - attendance...
+ * 🔥 ALL POSSIBLE DOMAINS (CRITICAL FIX)
  */
-const COOKIE_DOMAIN = ".aastugibigubae.com";
+const COOKIE_DOMAINS = [
+  ".aastugibigubae.com",
+  "api.attendance.aastugibigubae.com",
+  "attendance.aastugibigubae.com",
+];
 
 /**
- * Centralized cookie config (prevents mismatch bugs)
+ * Central cookie config (main domain)
  */
 const cookieOptions = {
   httpOnly: true,
   secure: true,
   sameSite: "none",
-  domain: COOKIE_DOMAIN,
+  domain: ".aastugibigubae.com",
   path: "/",
   maxAge: ninetyDays,
+};
+
+/**
+ * 🔥 HARD COOKIE CLEANER (IMPORTANT)
+ * Removes ALL possible stale cookies across domains
+ */
+const clearAllCookies = (res) => {
+  for (const domain of COOKIE_DOMAINS) {
+    res.clearCookie("auth_token", { domain, path: "/" });
+    res.clearCookie("refresh_token", { domain, path: "/" });
+  }
 };
 
 /**
@@ -43,7 +54,7 @@ const handleError = (res, err) => {
 };
 
 /**
- * Sign up
+ * SIGN UP
  */
 exports.signUp = async (req, res) => {
   try {
@@ -82,8 +93,8 @@ exports.signUp = async (req, res) => {
 
     email = email.toLowerCase();
 
-    const existingStudent = await Student.findOne({ where: { email } });
-    if (existingStudent) {
+    const existing = await Student.findOne({ where: { email } });
+    if (existing) {
       throw { statusCode: 400, message: "Student already exists" };
     }
 
@@ -119,10 +130,13 @@ exports.signUp = async (req, res) => {
       { expiresIn: JWT_REFRESH_EXPIRES_IN }
     );
 
+    // 🔥 SAFETY: wipe ALL possible old sessions
+    clearAllCookies(res);
+
     res.cookie("auth_token", token, cookieOptions);
     res.cookie("refresh_token", refreshToken, cookieOptions);
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: {
         id: student.id,
@@ -137,7 +151,7 @@ exports.signUp = async (req, res) => {
 };
 
 /**
- * Sign in
+ * SIGN IN
  */
 exports.signIn = async (req, res) => {
   try {
@@ -171,10 +185,13 @@ exports.signIn = async (req, res) => {
       { expiresIn: JWT_REFRESH_EXPIRES_IN }
     );
 
+    // 🔥 CRITICAL: remove ALL old sessions first
+    clearAllCookies(res);
+
     res.cookie("auth_token", token, cookieOptions);
     res.cookie("refresh_token", refreshToken, cookieOptions);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         id: student.id,
@@ -189,43 +206,35 @@ exports.signIn = async (req, res) => {
 };
 
 /**
- * Logout (🔥 FIXED: clears ALL possible variants)
+ * LOGOUT
  */
 exports.logout = (req, res) => {
-  const clearOptions = {
-    httpOnly: true,
-    secure: true,
-    sameSite: "none",
-    domain: COOKIE_DOMAIN,
-    path: "/",
-  };
+  // 🔥 HARD RESET EVERYTHING (ALL DOMAINS)
+  clearAllCookies(res);
 
-  res.clearCookie("auth_token", clearOptions);
-  res.clearCookie("refresh_token", clearOptions);
-
-  res.status(200).json({
+  return res.status(200).json({
     success: true,
     message: "Logged out successfully",
   });
 };
 
 /**
- * Refresh token (🔥 FIXED: safer + consistent)
+ * REFRESH TOKEN
  */
 exports.refreshToken = (req, res) => {
   try {
-    const refreshToken = req.cookies?.refresh_token;
+    const token = req.cookies?.refresh_token;
 
-    if (!refreshToken) {
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "No refresh token",
       });
     }
 
-    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(token, JWT_REFRESH_SECRET);
 
-    const newToken = jwt.sign(
+    const newAccessToken = jwt.sign(
       {
         user_id: decoded.user_id,
         email: decoded.email,
@@ -235,7 +244,7 @@ exports.refreshToken = (req, res) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    res.cookie("auth_token", newToken, cookieOptions);
+    res.cookie("auth_token", newAccessToken, cookieOptions);
 
     return res.json({
       success: true,
