@@ -110,7 +110,7 @@ exports.signUp = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: "aastugibigubae.com",
+      domain: "api.attendance.aastugibigubae.com",
       maxAge: ninetyDays,
       path: "/"
     });
