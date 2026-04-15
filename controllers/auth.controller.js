@@ -11,7 +11,21 @@ const {
 const ninetyDays = 1000 * 60 * 60 * 24 * 90;
 
 /**
- * 🔥 ALL POSSIBLE DOMAINS (CRITICAL FIX)
+ * 🔥 IMPORTANT: make cookies work in BOTH cPanel + cloud
+ */
+const isProduction = process.env.NODE_ENV === "production";
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: isProduction, // ✅ required for HTTPS only
+  sameSite: isProduction ? "none" : "lax", // ✅ prevents silent cookie rejection
+  domain: isProduction ? ".aastugibigubae.com" : undefined,
+  path: "/",
+  maxAge: ninetyDays,
+};
+
+/**
+ * 🔥 Only used in logout (NOT in login)
  */
 const COOKIE_DOMAINS = [
   ".aastugibigubae.com",
@@ -19,22 +33,6 @@ const COOKIE_DOMAINS = [
   "attendance.aastugibigubae.com",
 ];
 
-/**
- * Central cookie config (main domain)
- */
-const cookieOptions = {
-  httpOnly: true,
-  secure: true,
-  sameSite: "none",
-  domain: ".aastugibigubae.com",
-  path: "/",
-  maxAge: ninetyDays,
-};
-
-/**
- * 🔥 HARD COOKIE CLEANER (IMPORTANT)
- * Removes ALL possible stale cookies across domains
- */
 const clearAllCookies = (res) => {
   for (const domain of COOKIE_DOMAINS) {
     res.clearCookie("auth_token", { domain, path: "/" });
@@ -54,7 +52,7 @@ const handleError = (res, err) => {
 };
 
 /**
- * SIGN UP
+ * 🔥 SIGN UP
  */
 exports.signUp = async (req, res) => {
   try {
@@ -121,17 +119,20 @@ exports.signUp = async (req, res) => {
     const token = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN },
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
+    // 🔥 UNIQUE refresh token (fixes "first user wins")
     const refreshToken = jwt.sign(
-      { user_id: student.id, email: student.email, role: student.role },
+      {
+        user_id: student.id,
+        email: student.email,
+        role: student.role,
+        ts: Date.now(),
+      },
       JWT_REFRESH_SECRET,
-      { expiresIn: JWT_REFRESH_EXPIRES_IN },
+      { expiresIn: JWT_REFRESH_EXPIRES_IN }
     );
-
-    // 🔥 SAFETY: wipe ALL possible old sessions
-    clearAllCookies(res);
 
     res.cookie("auth_token", token, cookieOptions);
     res.cookie("refresh_token", refreshToken, cookieOptions);
@@ -151,7 +152,7 @@ exports.signUp = async (req, res) => {
 };
 
 /**
- * SIGN IN
+ * 🔥 SIGN IN
  */
 exports.signIn = async (req, res) => {
   try {
@@ -176,22 +177,23 @@ exports.signIn = async (req, res) => {
     const token = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN },
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     const refreshToken = jwt.sign(
-      { user_id: student.id, email: student.email, role: student.role },
+      {
+        user_id: student.id,
+        email: student.email,
+        role: student.role,
+        ts: Date.now(), // 🔥 critical
+      },
       JWT_REFRESH_SECRET,
-      { expiresIn: JWT_REFRESH_EXPIRES_IN },
+      { expiresIn: JWT_REFRESH_EXPIRES_IN }
     );
-
-    // 🔥 CRITICAL: remove ALL old sessions first
-    clearAllCookies(res);
 
     res.cookie("auth_token", token, cookieOptions);
     res.cookie("refresh_token", refreshToken, cookieOptions);
-    console.log("LOGIN HIT:", email);
-    console.log("USER FOUND:", student.role);
+
     return res.json({
       success: true,
       data: {
@@ -207,10 +209,9 @@ exports.signIn = async (req, res) => {
 };
 
 /**
- * LOGOUT
+ * 🔥 LOGOUT (FULL CLEAN)
  */
 exports.logout = (req, res) => {
-  // 🔥 HARD RESET EVERYTHING (ALL DOMAINS)
   clearAllCookies(res);
 
   return res.status(200).json({
@@ -220,7 +221,7 @@ exports.logout = (req, res) => {
 };
 
 /**
- * REFRESH TOKEN
+ * 🔥 REFRESH TOKEN
  */
 exports.refreshToken = (req, res) => {
   try {
@@ -242,7 +243,7 @@ exports.refreshToken = (req, res) => {
         role: decoded.role,
       },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN },
+      { expiresIn: JWT_EXPIRES_IN }
     );
 
     res.cookie("auth_token", newAccessToken, cookieOptions);
@@ -258,3 +259,4 @@ exports.refreshToken = (req, res) => {
     });
   }
 };
+

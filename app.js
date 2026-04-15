@@ -12,7 +12,7 @@ const analyticsRouter = require("./routes/analytics.route");;
 const adminRouter = require("./routes/adminRoutes");
 
 const app = express();
-
+app.set("trust proxy", 1);
 app.use(
   cors({
     origin: "https://attendance.aastugibigubae.com",
