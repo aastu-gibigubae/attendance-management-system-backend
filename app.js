@@ -15,7 +15,7 @@ const app = express();
 app.set("trust proxy", 1);
 app.use(
   cors({
-    origin: "https://attendance.aastugibigubae.com",
+    origin: ["https://attendance.aastugibigubae.com", "https://attendance-managment-system-bice.vercel.app"],
     credentials: true,
   })
 );
