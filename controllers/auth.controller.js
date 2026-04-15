@@ -6,9 +6,8 @@ const {
   JWT_REFRESH_SECRET,
   JWT_EXPIRES_IN,
   JWT_REFRESH_EXPIRES_IN,
-  NODE_ENV,
 } = require("../config/env.js");
-const { uploadToCloudinary } = require("../utils/cloudinary.js");
+  const ninetyDays = 1000 * 60 * 60 * 24 * 90;
 
 // Error handler
 const handleError = (res, err) => {
@@ -64,9 +63,7 @@ exports.signUp = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Upload ID card
-    if (!req.file)
-      throw { statusCode: 400, message: "ID card image is required" };
-    const id_card_image_path = await uploadToCloudinary(req.file, "id_card");
+    const id_card_image_path = "undefined";
 
     // Create student
     const student = await Student.create({
@@ -98,20 +95,24 @@ exports.signUp = async (req, res) => {
       JWT_REFRESH_SECRET,
       { expiresIn: JWT_REFRESH_EXPIRES_IN }
     );
-    const ninetyDays = 1000 * 60 * 60 * 24 * 90;
+
 
     res.cookie("auth_token", token, {
       httpOnly: true,
-      secure: NODE_ENV === "production",
-      sameSite: NODE_ENV === "production" ? "none" : "lax",
+      secure: true,
+      sameSite: "none",
+      domain: ".aastugibigubae.com",
       maxAge: ninetyDays,
+      path: "/"
     });
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: NODE_ENV === "production",
-      sameSite: NODE_ENV === "production" ? "none" : "lax",
+      secure: true,
+      sameSite: "none",
+      domain: ".aastugibigubae.com",
       maxAge: ninetyDays,
+      path: "/"
     });
 
     res.status(201).json({
@@ -152,20 +153,24 @@ exports.signIn = async (req, res) => {
       { expiresIn: JWT_REFRESH_EXPIRES_IN }
     );
 
-    const ninetyDays = 1000 * 60 * 60 * 24 * 90;
+
 
     res.cookie("auth_token", token, {
       httpOnly: true,
-      secure: NODE_ENV === "production",
-      sameSite: NODE_ENV === "production" ? "none" : "lax",
+      secure: true,
+      sameSite: "none",
+      domain: ".aastugibigubae.com",
       maxAge: ninetyDays,
+      path: "/"
     });
 
     res.cookie("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: NODE_ENV === "production",
-      sameSite: NODE_ENV === "production" ? "none" : "lax",
+      secure: true,
+      sameSite: "none",
+      domain: ".aastugibigubae.com",
       maxAge: ninetyDays,
+      path: "/"
     });
     res.json({
       success: true,
@@ -186,9 +191,11 @@ exports.logout = (req, res) => {
   // IMPORTANT: options must exactly match what was used in res.cookie() when setting
   // the token — otherwise the browser silently ignores the clear and the cookie survives.
   const cookieOptions = {
-    httpOnly: true,
-    secure: NODE_ENV === "production",
-    sameSite: NODE_ENV === "production" ? "none" : "lax",
+      httpOnly: true,
+      secure: true,
+      sameSite: "none",
+      domain: ".aastugibigubae.com",
+      path: "/"
   };
   res.clearCookie("auth_token", cookieOptions);
   res.clearCookie("refresh_token", cookieOptions);
@@ -198,11 +205,11 @@ exports.logout = (req, res) => {
 // Refresh token
 exports.refreshToken = (req, res) => {
   try {
-    const refreshToken = req.cookies?.refresh_token;
-    if (!refreshToken)
+    const refreshTokenCookie = req.cookies?.refresh_token;
+    if (!refreshTokenCookie)
       return res.status(401).json({ success: false, message: "Unauthorized" });
 
-    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+    const decoded = jwt.verify(refreshTokenCookie, JWT_REFRESH_SECRET);
     const newToken = jwt.sign(
       { user_id: decoded.user_id, email: decoded.email, role: decoded.role },
       JWT_SECRET,
@@ -211,9 +218,11 @@ exports.refreshToken = (req, res) => {
 
     res.cookie("auth_token", newToken, {
       httpOnly: true,
-      secure: NODE_ENV === "production",
+      secure: true,
       sameSite: "none",
-      maxAge: 1000 * 60 * 60 * 24,
+      maxAge: ninetyDays,
+      domain: ".aastugibigubae.com",
+      path: "/"
     });
     res.json({ success: true, message: "Token refreshed" });
   } catch (err) {

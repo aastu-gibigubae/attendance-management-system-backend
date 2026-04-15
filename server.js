@@ -1,7 +1,7 @@
 const app = require("./app.js");
 const { PORT, NODE_ENV } = require("./config/env.js");
 const db = require("./models"); // Sequelize instance
-const PROD_URL = "https://gibigubae-backend.onrender.com/";
+const PROD_URL = "https://attendance.aastugibigubae.com";
 
 app.listen(PORT, async () => {
   try {

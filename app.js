@@ -8,16 +8,14 @@ const courseRouter = require("./routes/course.route");
 const enrollmentRouter = require("./routes/enrollment.route");
 const attendanceRouter = require("./routes/attendance.route");
 const studentRouter = require("./routes/student.route");
-const analyticsRouter = require("./routes/analytics.route");
-
-const cron = require('node-cron');
+const analyticsRouter = require("./routes/analytics.route");;
 const adminRouter = require("./routes/adminRoutes");
 
 const app = express();
 
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    origin: "https://attendance.aastugibigubae.com",
     credentials: true,
   })
 );

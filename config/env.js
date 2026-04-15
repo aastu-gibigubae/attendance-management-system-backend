@@ -16,7 +16,4 @@ module.exports = {
   JWT_REFRESH_SECRET: getEnvVar("JWT_REFRESH_SECRET"),
   JWT_REFRESH_EXPIRES_IN: getEnvVar("JWT_REFRESH_EXPIRES_IN"),
   JWT_EXPIRES_IN: getEnvVar("JWT_EXPIRES_IN"),
-  API_KEY: getEnvVar("API_KEY"),
-  API_SECRET: getEnvVar("API_SECRET"),
-  CLOUD_NAME: getEnvVar("CLOUD_NAME"),
 };
