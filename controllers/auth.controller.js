@@ -121,13 +121,13 @@ exports.signUp = async (req, res) => {
     const token = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: JWT_EXPIRES_IN },
     );
 
     const refreshToken = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_REFRESH_SECRET,
-      { expiresIn: JWT_REFRESH_EXPIRES_IN }
+      { expiresIn: JWT_REFRESH_EXPIRES_IN },
     );
 
     // 🔥 SAFETY: wipe ALL possible old sessions
@@ -176,13 +176,13 @@ exports.signIn = async (req, res) => {
     const token = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: JWT_EXPIRES_IN },
     );
 
     const refreshToken = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_REFRESH_SECRET,
-      { expiresIn: JWT_REFRESH_EXPIRES_IN }
+      { expiresIn: JWT_REFRESH_EXPIRES_IN },
     );
 
     // 🔥 CRITICAL: remove ALL old sessions first
@@ -190,7 +190,8 @@ exports.signIn = async (req, res) => {
 
     res.cookie("auth_token", token, cookieOptions);
     res.cookie("refresh_token", refreshToken, cookieOptions);
-
+    console.log("LOGIN HIT:", email);
+    console.log("USER FOUND:", student.role);
     return res.json({
       success: true,
       data: {
@@ -241,7 +242,7 @@ exports.refreshToken = (req, res) => {
         role: decoded.role,
       },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: JWT_EXPIRES_IN },
     );
 
     res.cookie("auth_token", newAccessToken, cookieOptions);
