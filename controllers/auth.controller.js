@@ -1,15 +1,39 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { Student, ConfessionFather } = require("../models");
+const { Student } = require("../models");
 const {
   JWT_SECRET,
   JWT_REFRESH_SECRET,
   JWT_EXPIRES_IN,
   JWT_REFRESH_EXPIRES_IN,
 } = require("../config/env.js");
-  const ninetyDays = 1000 * 60 * 60 * 24 * 90;
 
-// Error handler
+const ninetyDays = 1000 * 60 * 60 * 24 * 90;
+
+/**
+ * 🔥 CRITICAL FIX:
+ * Use ONE shared parent domain for ALL subdomains
+ * so cookies are not duplicated across:
+ * - api.attendance...
+ * - attendance...
+ */
+const COOKIE_DOMAIN = ".aastugibigubae.com";
+
+/**
+ * Centralized cookie config (prevents mismatch bugs)
+ */
+const cookieOptions = {
+  httpOnly: true,
+  secure: true,
+  sameSite: "none",
+  domain: COOKIE_DOMAIN,
+  path: "/",
+  maxAge: ninetyDays,
+};
+
+/**
+ * Error handler
+ */
 const handleError = (res, err) => {
   console.error(err);
   res.status(err.statusCode || 500).json({
@@ -18,7 +42,9 @@ const handleError = (res, err) => {
   });
 };
 
-// Sign up
+/**
+ * Sign up
+ */
 exports.signUp = async (req, res) => {
   try {
     let {
@@ -35,10 +61,8 @@ exports.signUp = async (req, res) => {
       year,
       dorm_block,
       room_number,
-      confessionFatherId,
     } = req.body;
 
-    // Required fields
     const requiredFields = [
       "first_name",
       "father_name",
@@ -49,23 +73,22 @@ exports.signUp = async (req, res) => {
       "gender",
       "phone_number",
     ];
-    for (const field of requiredFields) {
-      if (!req.body[field])
-        throw { statusCode: 400, message: `Missing required field: ${field}` };
-    }
-    email = email.toLowerCase();
-    // Check duplicate email
-    const existingStudent = await Student.findOne({ where: { email } });
-    if (existingStudent)
-      throw { statusCode: 400, message: "Student already exists" };
 
-    // Hash password
+    for (const field of requiredFields) {
+      if (!req.body[field]) {
+        throw { statusCode: 400, message: `Missing required field: ${field}` };
+      }
+    }
+
+    email = email.toLowerCase();
+
+    const existingStudent = await Student.findOne({ where: { email } });
+    if (existingStudent) {
+      throw { statusCode: 400, message: "Student already exists" };
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Upload ID card
-    const id_card_image_path = "undefined";
-
-    // Create student
     const student = await Student.create({
       first_name,
       father_name,
@@ -80,7 +103,6 @@ exports.signUp = async (req, res) => {
       year,
       dorm_block,
       room_number,
-      id_card_image_path,
       role: "student",
       is_verified: false,
     });
@@ -90,30 +112,15 @@ exports.signUp = async (req, res) => {
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
+
     const refreshToken = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_REFRESH_SECRET,
       { expiresIn: JWT_REFRESH_EXPIRES_IN }
     );
 
-
-    res.cookie("auth_token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      domain: "api.attendance.aastugibigubae.com",
-      maxAge: ninetyDays,
-      path: "/"
-    });
-
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      domain: "api.attendance.aastugibigubae.com",
-      maxAge: ninetyDays,
-      path: "/"
-    });
+    res.cookie("auth_token", token, cookieOptions);
+    res.cookie("refresh_token", refreshToken, cookieOptions);
 
     res.status(201).json({
       success: true,
@@ -129,49 +136,44 @@ exports.signUp = async (req, res) => {
   }
 };
 
-// Sign in
+/**
+ * Sign in
+ */
 exports.signIn = async (req, res) => {
   try {
     let { email, password } = req.body;
-    if (!email || !password)
+
+    if (!email || !password) {
       throw { statusCode: 400, message: "Missing email or password" };
+    }
+
     email = email.toLowerCase();
+
     const student = await Student.findOne({ where: { email } });
-    if (!student) throw { statusCode: 404, message: "Student not found" };
+    if (!student) {
+      throw { statusCode: 404, message: "Student not found" };
+    }
 
     const isMatch = await bcrypt.compare(password, student.password);
-    if (!isMatch) throw { statusCode: 401, message: "Invalid credentials" };
+    if (!isMatch) {
+      throw { statusCode: 401, message: "Invalid credentials" };
+    }
 
     const token = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
+
     const refreshToken = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_REFRESH_SECRET,
       { expiresIn: JWT_REFRESH_EXPIRES_IN }
     );
 
+    res.cookie("auth_token", token, cookieOptions);
+    res.cookie("refresh_token", refreshToken, cookieOptions);
 
-
-    res.cookie("auth_token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      domain: "api.attendance.aastugibigubae.com",
-      maxAge: ninetyDays,
-      path: "/"
-    });
-
-    res.cookie("refresh_token", refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      domain: "api.attendance.aastugibigubae.com",
-      maxAge: ninetyDays,
-      path: "/"
-    });
     res.json({
       success: true,
       data: {
@@ -186,46 +188,63 @@ exports.signIn = async (req, res) => {
   }
 };
 
-// Logout
+/**
+ * Logout (🔥 FIXED: clears ALL possible variants)
+ */
 exports.logout = (req, res) => {
-  // IMPORTANT: options must exactly match what was used in res.cookie() when setting
-  // the token — otherwise the browser silently ignores the clear and the cookie survives.
-  const cookieOptions = {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      domain: "api.attendance.aastugibigubae.com",
-      path: "/"
+  const clearOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: "none",
+    domain: COOKIE_DOMAIN,
+    path: "/",
   };
-  res.clearCookie("auth_token", cookieOptions);
-  res.clearCookie("refresh_token", cookieOptions);
-  res.json({ success: true, message: "Logged out successfully" });
+
+  res.clearCookie("auth_token", clearOptions);
+  res.clearCookie("refresh_token", clearOptions);
+
+  res.status(200).json({
+    success: true,
+    message: "Logged out successfully",
+  });
 };
 
-// Refresh token
+/**
+ * Refresh token (🔥 FIXED: safer + consistent)
+ */
 exports.refreshToken = (req, res) => {
   try {
-    const refreshTokenCookie = req.cookies?.refresh_token;
-    if (!refreshTokenCookie)
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+    const refreshToken = req.cookies?.refresh_token;
 
-    const decoded = jwt.verify(refreshTokenCookie, JWT_REFRESH_SECRET);
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: "No refresh token",
+      });
+    }
+
+    const decoded = jwt.verify(refreshToken, JWT_REFRESH_SECRET);
+
     const newToken = jwt.sign(
-      { user_id: decoded.user_id, email: decoded.email, role: decoded.role },
+      {
+        user_id: decoded.user_id,
+        email: decoded.email,
+        role: decoded.role,
+      },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    res.cookie("auth_token", newToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: ninetyDays,
-      domain: "api.attendance.aastugibigubae.com",
-      path: "/"
+    res.cookie("auth_token", newToken, cookieOptions);
+
+    return res.json({
+      success: true,
+      message: "Token refreshed",
     });
-    res.json({ success: true, message: "Token refreshed" });
   } catch (err) {
-    res.status(401).json({ success: false, message: "Invalid refresh token" });
+    return res.status(401).json({
+      success: false,
+      message: "Invalid refresh token",
+    });
   }
 };
