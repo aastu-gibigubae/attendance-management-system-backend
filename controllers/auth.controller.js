@@ -102,6 +102,7 @@ exports.signUp = async (req, res) => {
       year,
       dorm_block,
       room_number,
+      id_card_image_path: "undefined",
       role: "student",
       is_verified: false,
     });
