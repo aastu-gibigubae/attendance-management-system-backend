@@ -9,7 +9,7 @@ const {
   JWT_REFRESH_EXPIRES_IN,
   NODE_ENV,
 } = require("../config/env.js");
-const { uploadToCloudinary } = require("../utils/cloudinary.js");
+
 
 // Error handler
 const handleError = (res, err) => {
