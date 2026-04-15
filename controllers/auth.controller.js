@@ -101,7 +101,7 @@ exports.signUp = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: "aastugibigubae.com",
+      domain: "api.attendance.aastugibigubae.com",
       maxAge: ninetyDays,
       path: "/"
     });
@@ -159,7 +159,7 @@ exports.signIn = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: "aastugibigubae.com",
+      domain: "api.attendance.aastugibigubae.com",
       maxAge: ninetyDays,
       path: "/"
     });
@@ -168,7 +168,7 @@ exports.signIn = async (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: "aastugibigubae.com",
+      domain: "api.attendance.aastugibigubae.com",
       maxAge: ninetyDays,
       path: "/"
     });
@@ -194,7 +194,7 @@ exports.logout = (req, res) => {
       httpOnly: true,
       secure: true,
       sameSite: "none",
-      domain: "aastugibigubae.com",
+      domain: "api.attendance.aastugibigubae.com",
       path: "/"
   };
   res.clearCookie("auth_token", cookieOptions);
@@ -221,7 +221,7 @@ exports.refreshToken = (req, res) => {
       secure: true,
       sameSite: "none",
       maxAge: ninetyDays,
-      domain: "aastugibigubae.com",
+      domain: "api.attendance.aastugibigubae.com",
       path: "/"
     });
     res.json({ success: true, message: "Token refreshed" });
