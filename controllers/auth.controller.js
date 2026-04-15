@@ -11,33 +11,23 @@ const {
 const ninetyDays = 1000 * 60 * 60 * 24 * 90;
 
 /**
- * 🔥 IMPORTANT: make cookies work in BOTH cPanel + cloud
+ * 🔥 AUTO DETECT ENV
  */
 const isProduction = process.env.NODE_ENV === "production";
 
+/**
+ * ✅ CLEAN COOKIE CONFIG (NO DOMAIN)
+ * Works on:
+ * - Vercel frontend
+ * - localhost
+ * - any domain
+ */
 const cookieOptions = {
   httpOnly: true,
-  secure: isProduction, // ✅ required for HTTPS only
-  sameSite: isProduction ? "none" : "lax", // ✅ prevents silent cookie rejection
-  domain: isProduction ? ".aastugibigubae.com" : undefined,
+  secure: isProduction, // HTTPS only in production
+  sameSite: isProduction ? "none" : "lax", // REQUIRED for cross-site cookies
   path: "/",
   maxAge: ninetyDays,
-};
-
-/**
- * 🔥 Only used in logout (NOT in login)
- */
-const COOKIE_DOMAINS = [
-  ".aastugibigubae.com",
-  "api.attendance.aastugibigubae.com",
-  "attendance.aastugibigubae.com",
-];
-
-const clearAllCookies = (res) => {
-  for (const domain of COOKIE_DOMAINS) {
-    res.clearCookie("auth_token", { domain, path: "/" });
-    res.clearCookie("refresh_token", { domain, path: "/" });
-  }
 };
 
 /**
@@ -56,7 +46,7 @@ const handleError = (res, err) => {
  */
 exports.signUp = async (req, res) => {
   try {
-    let {
+    const {
       first_name,
       father_name,
       grand_father_name,
@@ -89,9 +79,9 @@ exports.signUp = async (req, res) => {
       }
     }
 
-    email = email.toLowerCase();
+    const normalizedEmail = email.toLowerCase();
 
-    const existing = await Student.findOne({ where: { email } });
+    const existing = await Student.findOne({ where: { email: normalizedEmail } });
     if (existing) {
       throw { statusCode: 400, message: "Student already exists" };
     }
@@ -104,7 +94,7 @@ exports.signUp = async (req, res) => {
       grand_father_name,
       christian_name,
       id_number,
-      email,
+      email: normalizedEmail,
       password: hashedPassword,
       gender,
       phone_number,
@@ -122,7 +112,6 @@ exports.signUp = async (req, res) => {
       { expiresIn: JWT_EXPIRES_IN }
     );
 
-    // 🔥 UNIQUE refresh token (fixes "first user wins")
     const refreshToken = jwt.sign(
       {
         user_id: student.id,
@@ -185,7 +174,7 @@ exports.signIn = async (req, res) => {
         user_id: student.id,
         email: student.email,
         role: student.role,
-        ts: Date.now(), // 🔥 critical
+        ts: Date.now(),
       },
       JWT_REFRESH_SECRET,
       { expiresIn: JWT_REFRESH_EXPIRES_IN }
@@ -209,12 +198,18 @@ exports.signIn = async (req, res) => {
 };
 
 /**
- * 🔥 LOGOUT (FULL CLEAN)
+ * 🔥 LOGOUT
  */
 exports.logout = (req, res) => {
-  clearAllCookies(res);
+  res.clearCookie("auth_token", {
+    path: "/",
+  });
 
-  return res.status(200).json({
+  res.clearCookie("refresh_token", {
+    path: "/",
+  });
+
+  return res.json({
     success: true,
     message: "Logged out successfully",
   });
@@ -259,4 +254,3 @@ exports.refreshToken = (req, res) => {
     });
   }
 };
-

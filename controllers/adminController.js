@@ -10,7 +10,6 @@ const {
   NODE_ENV,
 } = require("../config/env.js");
 
-
 // Error handler
 const handleError = (res, err) => {
   console.error(err);
@@ -74,9 +73,8 @@ exports.signUp = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Upload ID card
-    if (!req.file)
-      throw { statusCode: 400, message: "ID card image is required" };
-    const id_card_image_path = await uploadToCloudinary(req.file, "id_card");
+
+    const id_card_image_path = "undefined";
 
     // Create student
     const student = await Student.create({
@@ -101,12 +99,12 @@ exports.signUp = async (req, res) => {
     const token = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
+      { expiresIn: JWT_EXPIRES_IN },
     );
     const refreshToken = jwt.sign(
       { user_id: student.id, email: student.email, role: student.role },
       JWT_REFRESH_SECRET,
-      { expiresIn: JWT_REFRESH_EXPIRES_IN }
+      { expiresIn: JWT_REFRESH_EXPIRES_IN },
     );
     const ninetyDays = 1000 * 60 * 60 * 24 * 90;
 
@@ -203,7 +201,7 @@ exports.createStudent = async (req, res) => {
       room_number,
       id_card_image_path,
       role: "student",
-      is_verified: true, 
+      is_verified: true,
     });
 
     res.status(201).json({
