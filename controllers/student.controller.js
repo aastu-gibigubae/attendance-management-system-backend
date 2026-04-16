@@ -45,6 +45,7 @@ exports.updateStudentByAdmin = async (req, res) => {
       "room_number",
       "is_verified",
       "password", 
+      "role"
     ];
 
     const updates = {};
