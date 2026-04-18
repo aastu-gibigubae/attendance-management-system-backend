@@ -9,7 +9,8 @@
     "start": "node server.js",
     "build": "npm install",
     "migrate": "npx sequelize-cli db:migrate --env production",
-    "seed": "npx sequelize-cli db:seed:all --env production"
+    "seed": "npx sequelize-cli db:seed:all --env production",
+    "clean-install": "node -e \"require('fs').rmSync('node_modules', { recursive: true, force: true }); require('fs').rmSync('package-lock.json', { force: true });\" && npm install && npm rebuild"
   },
   "repository": {
     "type": "git",
