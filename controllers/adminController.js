@@ -183,7 +183,6 @@ exports.createStudent = async (req, res) => {
     if (!req.file)
       throw { statusCode: 400, message: "ID card image is required" };
 
-    const id_card_image_path = await uploadToCloudinary(req.file, "id_card");
 
     const student = await Student.create({
       first_name,
@@ -199,7 +198,7 @@ exports.createStudent = async (req, res) => {
       year,
       dorm_block,
       room_number,
-      id_card_image_path,
+      id_card_image_path: "undefined",
       role: "student",
       is_verified: true,
     });
