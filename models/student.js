@@ -6,13 +6,17 @@ const DEPARTMENTS = [
   "Electrical and Computer Engineering",
   "Civil Engineering",
   "Architecture",
+  "Environmental Engineering",
+  "Geology",
+  "Industrial Chemistry",
   "Applied Science",
   "Freshman Engineering",
   "Biotechnology",
   "Industrial Chemistry",
   "Mining",
   "Food Science",
-  "Masters"
+  "Postgraduate",
+  "Other"
 ];
 
 module.exports = (sequelize, DataTypes) => {
